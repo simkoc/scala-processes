@@ -3,7 +3,7 @@ package de.halcony.processes.cmd
 import wvlet.log.LogLevel.ERROR
 import wvlet.log.{LogLevel, LogSupport}
 
-import scala.collection.JavaConverters.*
+import scala.jdk.CollectionConverters._
 import java.io.{BufferedReader, InputStream, InputStreamReader}
 import java.util.concurrent.TimeUnit
 
