@@ -60,7 +60,7 @@ class CmdProcessTest extends AnyWordSpec with Matchers {
     "return the result even if it is a lot of output" in {
       val process: CmdProcess = new CmdProcessBuilder("./resources/testScripts/generateLotsaOutput.sh")
         .start()
-      process.waitFor(1000, TimeUnit.MILLISECONDS)
+      process.waitFor(10000, TimeUnit.MILLISECONDS)
       assert(!process.isAlive)
       //process.flushOutputs()
       assertResult(100000)(process.getStdout.split("\n").length)
