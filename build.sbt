@@ -93,7 +93,7 @@ ThisBuild / developers := List(
 // this is required for sonatype sync requirements
 ThisBuild / licenses := List("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0"))
 // this is required for sonatype sync requirements
-ThisBuild / homepage := Some(url("https://github.com/simkoc/scala-argparse"))
+ThisBuild / homepage := Some(url("https://github.com/simkoc/scala-processes"))
 
 
 // below is pretty much cargo cult/fuzzing....
