@@ -77,8 +77,8 @@ sonatypeProfileName := "de.halcony"
 // this is required for sonatype sync requirements
 ThisBuild / scmInfo := Some(
   ScmInfo(
-    url("https://github.com/simkoc/scala-argparse"),
-    "scm:git@github.com:simkoc/scala-argparse.git"
+    url("https://github.com/simkoc/scala-processes"),
+    "scm:git@github.com:simkoc/scala-processes.git"
   )
 )
 // this is required for sonatype sync requirements
