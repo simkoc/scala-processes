@@ -1,5 +1,7 @@
 package de.halcony.processes.threading
 
+import wvlet.log.LogLevel
+
 /** Utility to build a thread manager that uses the provided lambda to process incoming jobs
   *
   * @param lambda the lambda to process a given job
@@ -7,6 +9,7 @@ package de.halcony.processes.threading
   */
 class ThreadManagerBuilder[T](lambda: T => Unit) {
 
+  private val threadManager = new ThreadManager[T]()
   processingLambda(lambda)
 
   /** sets the processing lambda
@@ -19,7 +22,20 @@ class ThreadManagerBuilder[T](lambda: T => Unit) {
     this
   }
 
-  private val threadManager = new ThreadManager[T]()
+  def setLogLevel(level: LogLevel): ThreadManagerBuilder[T] = {
+    threadManager.setLogLevel(level)
+    this
+  }
+
+  def addJob(job: T): ThreadManagerBuilder[T] = {
+    threadManager.addJob(job)
+    this
+  }
+
+  def addJobs(jobs: Seq[T]): ThreadManagerBuilder[T] = {
+    threadManager.addJobs(jobs)
+    this
+  }
 
   /** set the number of threads to be used in parallel (default: #cores)
     *

@@ -49,16 +49,18 @@ class ThreadManager[T] extends LogSupport {
     this
   }
 
-  protected[threading] def encounteredError(input: Option[T],
-                                            thr: Throwable): Unit = {
+  private def encounteredError(input: Option[T], thr: Throwable): Unit = {
     onError(input, thr) match {
-      case Some((input, thr)) =>
-      case None               =>
+      case Some(err) =>
+        synchronized {
+          errors.addOne(err)
+        }
+      case None =>
     }
   }
 
   private var threadsShallBeRunning = true
-  protected[threading] def getKeepRunning: Boolean = synchronized {
+  private def getKeepRunning: Boolean = synchronized {
     threadsShallBeRunning
   }
 
@@ -80,6 +82,10 @@ class ThreadManager[T] extends LogSupport {
     this.notifyAll()
   }
 
+  def remainingJobs(): Int = synchronized {
+    this.jobQueue.length
+  }
+
   private val threads: collection.mutable.Map[Int, Thread] =
     collection.mutable.Map()
   private val threadsJob: collection.mutable.Map[Int, Option[T]] =
@@ -93,6 +99,11 @@ class ThreadManager[T] extends LogSupport {
     threadsJob.addOne(id, job)
   }
 
+  def getThreadJobs: Map[Int, Option[T]] = synchronized {
+    this.threadsJob.toMap
+  }
+
+  //todo: the mutexes could be optimized to be split between manager and job queue
   protected[threading] def createPool(): ThreadManager[T] = {
     val parentManager = this
     (0 until threadCount).foreach { id =>
@@ -121,6 +132,9 @@ class ThreadManager[T] extends LogSupport {
                 } finally {
                   // and set the current job to none
                   setThreadJob(myId, None)
+                  parentManager.synchronized {
+                    parentManager.notifyAll()
+                  }
                 } // rinse and repeat
               case None => // if there wasn't a job, go to the start of the loop
             }
@@ -192,17 +206,19 @@ class ThreadManager[T] extends LogSupport {
     */
   def waitFor(timeoutMs: Long): Boolean = {
     val start = System.currentTimeMillis() // get the current time
-    this.synchronized {
-      var delta = (start + timeoutMs) - System
-        .currentTimeMillis() // calculate the remaining time
-      while (areThreadsAlive() && delta > 0) { // while there are still threads alive and time to wait
-        delta = (start + timeoutMs) - System
-          .currentTimeMillis() // calculate the remaining time
-        this.wait(delta) // and wait for that time
+    var delta = (start + timeoutMs) - System
+      .currentTimeMillis() // calculate the remaining time
+    while (areThreadsAlive() && delta > 0) { // while there are still threads alive and time to wait
+      delta = List((start + timeoutMs) - System
+                     .currentTimeMillis(),
+                   0).max // calculate the remaining time
+      info(s"waiting for $delta")
+      this.synchronized {
+        if (delta > 0)
+          this.wait(delta) // and wait for that time
       }
-      this.jobQueue.isEmpty // check if there are still jobs remaining
     }
-
+    this.jobQueue.isEmpty // check if there are still jobs remaining
   }
 
 }
