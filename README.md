@@ -29,7 +29,7 @@ scaling the processing of tasks using threading via a thread pool.
 
 My main grievances with the standard API in Scala is that you have basically no control over the process
 and cannot kill it if it refuses to die. When it comes to the Java API reading the stderr and stdout stream
-is patently annoying as it either blocks if you do not read it while the process is running or you have to
+is patently annoying as it either blocks and prevents the process from running its course if you do not read it while the process is running or you have to
 spawn and manage your own reader thread. This utility lib is supposed to address either issue.
 
 ```
