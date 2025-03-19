@@ -3,8 +3,8 @@ package de.halcony.processes.cmd
 import wvlet.log.LogLevel.ERROR
 import wvlet.log.{LogLevel, LogSupport}
 
+import scala.collection.JavaConverters.*
 import java.io.{BufferedReader, InputStream, InputStreamReader}
-import java.nio.CharBuffer
 import java.util.concurrent.TimeUnit
 
 /** A cmd line process
@@ -34,19 +34,23 @@ class CmdProcess extends LogSupport {
   private var stderrCollectorThread : Option[Thread] = None
   private var stderrCollectorError : Option[Exception] = None
 
-  private def createStreamReaderThread(inputStream : InputStream, collector : StringBuilder, errorStream : Boolean) : Thread = {
-    val parentLogger = this.logger
+
+  private def createStreamReaderThread(inputStream : InputStream, collector : StringBuilder, errorStream : Boolean, readBufferSize : Int = 5) : Thread = {
+    val logger = this.logger
     new Thread( () => {
       try {
         val reader = new BufferedReader(new InputStreamReader(inputStream))
         try {
-          val buffer : CharBuffer = CharBuffer.allocate(1000)
+          val buffer : Array[Char] = Array.ofDim(readBufferSize)
           while ((reader.ready() || this.isAlive) && getShallBeAlive) {
-            reader.read(buffer)
-            collector.append(buffer)
-            buffer.clear()
-            if (!reader.ready())
-              reader.wait(100)
+            val read = reader.read(buffer)
+            if(read != -1)
+              collector.append(String.copyValueOf(buffer,0,read))
+            if (!reader.ready()) {
+              reader.synchronized {
+                reader.wait(100)
+              }
+            }
           }
         } finally {
           reader.close()
@@ -54,13 +58,24 @@ class CmdProcess extends LogSupport {
       } catch {
         case e : Exception =>
           if(errorStream)
-            parentLogger.error("[ErrorStream]" + e.getMessage,e)
+            logger.error("[ErrorStream]" + e.getMessage,e)
             stderrCollectorError = Some(e)
           else
-            parentLogger.error("[StdoutStream]" + e.getMessage,e)
+            logger.error("[StdoutStream]" + e.getMessage,e)
             stdoutCollectorError = Some(e)
       }
     })
+  }
+
+  def flushOutputs(): Unit = {
+    stdoutCollectorThread match {
+      case Some(thread) => thread.join()
+      case None =>
+    }
+    stderrCollectorThread match {
+      case Some(thread) => thread.join()
+      case None =>
+    }
   }
 
   protected[cmd] def setStdoutCollector(collector : StringBuilder) : CmdProcess = {
@@ -105,12 +120,20 @@ class CmdProcess extends LogSupport {
   def getWrappedProcess : Process = getProcess
 
 
+  def isAlive : Boolean = {
+    getProcess.isAlive
+  }
+
   /** checks if the underlying process is alive
    *
    * @return true if the underlying process is alive
    */
-  def isAlive: Boolean = {
-    getProcess.isAlive
+  def isAlive(descendants : Boolean = false): Boolean = {
+    if(!descendants) {
+      getProcess.isAlive
+    } else {
+      getProcess.descendants().toList.asScala.exists(_.isAlive) || getProcess.isAlive
+    }
   }
 
   /** wait for the process to terminate
@@ -120,7 +143,9 @@ class CmdProcess extends LogSupport {
    * @return whether the process terminated within the allotted time
    */
   def waitFor(timeout : Long, unit : TimeUnit) : Boolean = {
-    getProcess.waitFor(timeout, unit)
+    val ret = getProcess.waitFor(timeout, unit)
+    if(!isAlive) flushOutputs()
+    ret
   }
 
 
@@ -147,6 +172,9 @@ class CmdProcess extends LogSupport {
    */
   def destroy() : Unit = {
     setShallBeAlive(false)
+    getProcess.descendants().forEach {
+      processHandle => processHandle.destroy()
+    }
     getProcess.destroy()
   }
 
@@ -172,6 +200,17 @@ class CmdProcess extends LogSupport {
     }
   }
 
+  /** destroys the process forcibly (die!!!!!)
+   *
+   */
+  def destroyForcibly(): Unit = {
+    setShallBeAlive(false)
+    getProcess.descendants().forEach {
+      processHandle => processHandle.destroyForcibly()
+    }
+    getProcess.destroyForcibly()
+  }
+
   /** get the stdout output (so far) of the process
    *
    * @return the output (so far) of the process
@@ -191,13 +230,7 @@ class CmdProcess extends LogSupport {
     case None => throw new RuntimeException("no in-process stderr collection configured")
   }
 
-  /** destroys the process forcibly (die!!!!!)
-   *
-   */
-  def destroyForcibly() : Unit = {
-    setShallBeAlive(false)
-    getProcess.destroyForcibly()
-  }
+
 
   /** get the process exit value
    *
