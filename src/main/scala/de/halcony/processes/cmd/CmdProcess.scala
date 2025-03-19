@@ -59,12 +59,13 @@ class CmdProcess extends LogSupport {
         }
       } catch {
         case e : Exception =>
-          if(errorStream)
-            logger.error("[ErrorStream]" + e.getMessage,e)
+          if(errorStream) {
+            logger.error("[ErrorStream]" + e.getMessage, e)
             stderrCollectorError = Some(e)
-          else
-            logger.error("[StdoutStream]" + e.getMessage,e)
+          } else {
+            logger.error("[StdoutStream]" + e.getMessage, e)
             stdoutCollectorError = Some(e)
+          }
       }
     })
   }

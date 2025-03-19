@@ -5,11 +5,14 @@ import wvlet.log.{LogLevel, LogSupport}
 
 import scala.collection.mutable.ListBuffer
 
+
 /** Utility class to manage multiple threads processing jobs created via the ThreadManagerBuilder
  *
  * @tparam T the type of the jobs being processed by the managed threads
  */
 class ThreadManager[T] extends LogSupport {
+
+  type OnErrorT = (Option[T],Throwable) => Option[(Option[T],Throwable)]
 
   this.logger.setLogLevel(ERROR)
 
@@ -37,12 +40,13 @@ class ThreadManager[T] extends LogSupport {
     ret
   }
 
-  private var onError : (input: Option[T], thr: Throwable) => Option[(Option[T], Throwable)] = (input,thr) => {
+
+  private var onError : OnErrorT = (input,thr) => {
     this.error(s"unhandled error while processing $input",thr)
     Some((input, thr))
   }
 
-  protected[threading] def setOnError(onError : (input : Option[T], thr : Throwable) => Option[(Option[T],Throwable)]) : ThreadManager[T] = {
+  protected[threading] def setOnError(onError : OnErrorT) : ThreadManager[T] = {
     this.onError = onError
     this
   }
@@ -91,7 +95,7 @@ class ThreadManager[T] extends LogSupport {
     val parentManager = this
     (0 until threadCount).foreach {
       id =>
-        threads.addOne(id ->  Thread( () => {
+        threads.addOne(id ->  new Thread( () => {
           val myId = id
           parentManager.info(s"thread $myId has started")
           try {
@@ -105,7 +109,7 @@ class ThreadManager[T] extends LogSupport {
                 }
               } match {
                 case Some(job) => try { // if there was a job
-                  parentManager.logger.info(s"thread $myId starts processing job $job")
+                  parentManager.info(s"thread $myId starts processing job $job")
                   this.setThreadJob(myId, Some(job)) // set the job the thread is working on
                   this.lambda.get.apply(job) // run the process lambda
                 } catch {

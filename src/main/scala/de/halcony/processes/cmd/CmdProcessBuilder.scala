@@ -11,7 +11,7 @@ import java.lang.ProcessBuilder.Redirect
  */
 class CmdProcessBuilder(cmd : String*) {
 
-  private val builder : ProcessBuilder = new ProcessBuilder(cmd*)
+  private val builder : ProcessBuilder = new ProcessBuilder(cmd : _*)
   private val processWrapper : CmdProcess = new CmdProcess()
 
   private var isStdOutSet : Boolean = false

@@ -39,7 +39,7 @@ class ThreadManagerBuilder[T](lambda : T => Unit) {
    * @param onError the function to process the error
    * @return the current ThreadManagerBuilder
    */
-  def handleErrors(onError : (job : Option[T], thr: Throwable) => Option[(Option[T],Throwable)]) : ThreadManagerBuilder[T] = {
+  def handleErrors(onError : threadManager.OnErrorT) : ThreadManagerBuilder[T] = {
     threadManager.setOnError(onError)
     this
   }

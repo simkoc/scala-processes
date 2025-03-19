@@ -6,17 +6,16 @@ ThisBuild / versionScheme := Some("semver-spec")
 Global / onChangedBuildSource := ReloadOnSourceChanges
 enablePlugins(JavaAppPackaging)
 lazy val scala213 = "2.13.14"
-lazy val scala212 = "2.12.18"
 lazy val scala306 = "3.6.3"
 
 scalaVersion := scala306
 
-crossScalaVersions := List(scala213, scala212, scala306)
+crossScalaVersions := List(scala213, scala306)
 
 libraryDependencies ++= Seq(
-  "org.scalatest"   %% "scalatest" % "3.2.19" % Test,
+  "org.scalatest"                 %% "scalatest"               % "3.2.19" % Test,
   "org.wvlet.airframe"            %% "airframe-log"            % "2025.1.8",
-  "org.slf4j"                     %  "slf4j-nop"               % "2.0.16",
+  "org.slf4j"                     %  "slf4j-nop"               % "2.0.17",
 )
 
 ThisBuild / resolvers ++= Seq(
