@@ -12,6 +12,8 @@ import java.util.concurrent.TimeUnit
  */
 class CmdProcess extends LogSupport {
 
+  val READ_BUFFER_SIZE = 1000
+
   this.logger.setLogLevel(ERROR)
 
   private var wrappedProcess : Option[Process] = None
@@ -35,7 +37,7 @@ class CmdProcess extends LogSupport {
   private var stderrCollectorError : Option[Exception] = None
 
 
-  private def createStreamReaderThread(inputStream : InputStream, collector : StringBuilder, errorStream : Boolean, readBufferSize : Int = 5) : Thread = {
+  private def createStreamReaderThread(inputStream : InputStream, collector : StringBuilder, errorStream : Boolean, readBufferSize : Int = READ_BUFFER_SIZE) : Thread = {
     val logger = this.logger
     new Thread( () => {
       try {
