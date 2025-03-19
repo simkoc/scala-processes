@@ -1,4 +1,4 @@
-# scala processes (`0.5.0`)
+# scala processes (`1.0.0`)
 
 While working with the command line and parallelizing execution I encountered the same code patterns over
 and over again. This library is my attempt at factorizing those patterns into one neat dependency.
