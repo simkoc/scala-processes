@@ -15,7 +15,6 @@ class ThreadManagerTest extends AnyWordSpec with Matchers{
         ).threadCount(5)
           .setLogLevel(DEBUG)
           .addJobs(List(1000,1000,1000,1000,1000)).start()
-        println("started")
         assert(manager.waitFor(1500))
         manager.stop()
         assert(!manager.isAlive)
@@ -26,7 +25,6 @@ class ThreadManagerTest extends AnyWordSpec with Matchers{
       ).threadCount(5)
         .setLogLevel(DEBUG)
         .addJobs(List(1000,1000,1000,1000,1000)).start()
-      println("started")
       assert(manager.waitFor(1500))
       manager.stop()
       assert(!manager.isAlive)
@@ -44,7 +42,6 @@ class ThreadManagerTest extends AnyWordSpec with Matchers{
             None
         }
         .addJobs(List(1,1,1,1,1)).start()
-      println("started")
       assert(manager.waitFor(1500))
       manager.stop()
       assert(!manager.isAlive)
@@ -63,7 +60,6 @@ class ThreadManagerTest extends AnyWordSpec with Matchers{
             None
         }
         .addJobs(List(1000,1000,1000,1000,1000)).start()
-      println("started")
       assert(!manager.waitFor(1500))
       assert(manager.isAlive)
       manager.stop(1000)
