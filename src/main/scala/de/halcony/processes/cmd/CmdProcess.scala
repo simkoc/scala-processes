@@ -12,7 +12,7 @@ import java.util.concurrent.TimeUnit
   */
 class CmdProcess extends LogSupport {
 
-  val READ_BUFFER_SIZE = 1000
+  private val READ_BUFFER_SIZE = 1000
 
   this.logger.setLogLevel(ERROR)
 
@@ -24,8 +24,8 @@ class CmdProcess extends LogSupport {
 
   private var shallBeAlive = true
   private def getShallBeAlive: Boolean = synchronized { shallBeAlive }
-  private def setShallBeAlive(value: Boolean) = synchronized {
-    shallBeAlive = value
+  private def setShallBeAliveFalse() = synchronized {
+    shallBeAlive = false
     shallBeAlive
   }
 
@@ -73,17 +73,6 @@ class CmdProcess extends LogSupport {
     })
   }
 
-  def flushOutputs(): Unit = {
-    stdoutCollectorThread match {
-      case Some(thread) => thread.join()
-      case None         =>
-    }
-    stderrCollectorThread match {
-      case Some(thread) => thread.join()
-      case None         =>
-    }
-  }
-
   protected[cmd] def setStdoutCollector(
       collector: StringBuilder): CmdProcess = {
     stdoutCollector = Some(collector)
@@ -99,16 +88,44 @@ class CmdProcess extends LogSupport {
   protected[cmd] def start(process: Process): CmdProcess = {
     wrappedProcess = Some(process)
     stdoutCollector.foreach { collector =>
-      stdoutCollectorThread =
-        Some(createStreamReaderThread(process.getInputStream, collector, false))
+      stdoutCollectorThread = Some(
+        createStreamReaderThread(process.getInputStream,
+                                 collector,
+                                 errorStream = false))
       stdoutCollectorThread.get.start()
     }
     stderrCollector.foreach { collector =>
-      stderrCollectorThread =
-        Some(createStreamReaderThread(process.getErrorStream, collector, false))
+      stderrCollectorThread = Some(
+        createStreamReaderThread(process.getErrorStream,
+                                 collector,
+                                 errorStream = true))
       stderrCollectorThread.get.start()
     }
     this
+  }
+
+  /** Ensure that everything is read from stdout and stderr
+    * should only be used if the underlying process has finished
+    *
+    * @param waitMs how long to wait for the flushing to succeed (0 is blocking)
+    */
+  def flushOutputs(waitMs: Long): Unit = {
+    stdoutCollectorThread match {
+      case Some(thread) => thread.join(waitMs)
+      case None         =>
+    }
+    stderrCollectorThread match {
+      case Some(thread) => thread.join(waitMs)
+      case None         =>
+    }
+  }
+
+  /** Ensure that everything is read from stdout and stderr
+    * should only be used if the underlying process has finished (blocking)
+    *
+    */
+  def flushOutputs(): Unit = {
+    flushOutputs(0)
   }
 
   /** set the log level of the current process
@@ -153,77 +170,62 @@ class CmdProcess extends LogSupport {
     * @param unit timeout unit
     * @return whether the process terminated within the allotted time
     */
-  def waitFor(timeout: Long, unit: TimeUnit): Boolean = {
-    val ret = getProcess.waitFor(timeout, unit)
-    if (!isAlive) flushOutputs()
-    ret
-  }
-
-  /** waits for the process to terminate and handles success/failure
-    *
-    * @param timeout timout length
-    * @param unit timeout unit
-    * @param onSuccess what to do if the process terminates on time
-    * @param onFailure what to do if the process does not terminate on time
-    * @tparam T the return type of both succces and failure
-    * @return the value returned by success/failure
-    */
-  def waitFor[T](timeout: Long,
-                 unit: TimeUnit,
-                 onSuccess: => T,
-                 onFailure: => T): T = {
-    waitFor(timeout, unit)
-    if (isAlive) {
-      onSuccess
+  def waitFor(timeout: Long, unit: TimeUnit): ProcessState = {
+    getProcess.waitFor(timeout, unit)
+    if (!isAlive) {
+      flushOutputs()
+      Terminated(getExitValue)
     } else {
-      onFailure
+      Alive()
     }
   }
 
   /** interrupt/destroy the currently running process
     *
     */
-  def destroy(): Unit = {
-    setShallBeAlive(false)
+  def destroy(gracePeriod: Long, unit: TimeUnit): ProcessState = {
+    setShallBeAliveFalse()
     getProcess.descendants().forEach { processHandle =>
       processHandle.destroy()
     }
     getProcess.destroy()
-  }
-
-  /** interrupt/destroy the current process and handle failure to do so (after a graceperiod of 100ms)
-    *
-    * @param orElse what to do if the process did not terminate
-    */
-  def destroyOrElse(orElse: => Unit): Unit = {
-    this.destroyOrElse(100, TimeUnit.MILLISECONDS, orElse)
-  }
-
-  /** interrupt/destroy the current process and handle failure to do so
-    *
-    * @param gracePeriod graceperiod to check if successfull
-    * @param unit graceperiod time unit
-    * @param orElse what to do if the process did not terminate
-    */
-  def destroyOrElse(gracePeriod: Long,
-                    unit: TimeUnit,
-                    orElse: => Unit): Unit = {
-    this.destroy()
-    this.waitFor(gracePeriod, unit)
-    if (this.isAlive) {
-      orElse
+    getProcess.waitFor(gracePeriod, unit)
+    if (getProcess.isAlive) {
+      Alive()
+    } else {
+      Terminated(getExitValue)
     }
   }
+
+  /** interrupt/destroy the currently running process
+    *
+    * @return
+    */
+  def destroy(): ProcessState = destroy(100, TimeUnit.MILLISECONDS)
 
   /** destroys the process forcibly (die!!!!!)
     *
     */
-  def destroyForcibly(): Unit = {
-    setShallBeAlive(false)
+  def destroyForcibly(): ProcessState = {
+    destroyForcibly(0, TimeUnit.MILLISECONDS)
+  }
+
+  /** destroy the process forcibly (die!!!!!)
+    *
+    * @param gracePeriod how much time the process gets until it needs to be dead
+    * @param unit the unit in which to the grace period is defined
+    * @return the state of the process after the grace period
+    */
+  def destroyForcibly(gracePeriod: Long, unit: TimeUnit): ProcessState = {
+    setShallBeAliveFalse()
     getProcess.descendants().forEach { processHandle =>
       processHandle.destroyForcibly()
     }
     getProcess.destroyForcibly()
+    if (isAlive)
+      Alive()
+    else
+      Terminated(getExitValue)
   }
 
   /** get the stdout output (so far) of the process
